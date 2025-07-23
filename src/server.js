@@ -1,8 +1,10 @@
 const express = require('express');
 const { createServer } = require('http');
 const { dbConnection } = require('./database/config');
+const  authMiddleware  =require( './middlewares/basicAuth');
 const dotenv = require('dotenv');
 dotenv.config();
+const smsRoutes = require('./routes/sms');
 
 class Server{
 
@@ -31,12 +33,17 @@ class Server{
 
 
     middlewares(){
+       
+    this.app.use(express.json());
+    this.app.use( authMiddleware );
 
     }
 
     routes(){
+        this.app.use(this.paths.sms,smsRoutes)
 
     }
+    
 
     listen() {
         this.server.listen(this.port, () => {
