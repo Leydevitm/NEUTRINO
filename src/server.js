@@ -3,6 +3,7 @@ const { createServer } = require('http');
 const { dbConnection } = require('./database/config');
 const  authMiddleware  =require( './middlewares/basicAuth');
 const dotenv = require('dotenv');
+const cors = require('cors');
 dotenv.config();
 const smsRoutes = require('./routes/sms');
 
@@ -33,7 +34,7 @@ class Server{
 
 
     middlewares(){
-       
+    this.app.use(cors());
     this.app.use(express.json());
     this.app.use( authMiddleware );
 

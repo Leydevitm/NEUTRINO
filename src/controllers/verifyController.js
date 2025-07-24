@@ -1,27 +1,57 @@
+const {sendCodeWithNeutrino} = require('../services/neutrinoVerifyService');
 const sanitizePhone = require( '../utils/phoneSanitizer');
+const sendResponse = require('../utils/sendResponse');
+const logger = require('../utils/logger');
+const VerificationCode = require('../models/verificationCode');
+const bcrypt = require('bcrypt');
 
  async function sendCode(req, res) {
-  const { phone } = req.body;
+  try {
+    const rawPhone = req.body.phone;
+    const phone = sanitizePhone(rawPhone);
 
+    if (!phone) {
+      return sendResponse(res, 400, false, 'Número de teléfono inválido');
+    }
 
-  if (!phone || phone.trim() === '') {
-    return res.status(400).json({ error: 'Número telefónico requerido' });
+    const response = await sendCodeWithNeutrino(phone);
+
+       if (response['sent'] !== true) {
+      logger.error(`Neutrino falló: ${response['status-message']}`);
+      return sendResponse(res, 500, false, 'No se pudo enviar el código', {
+        error: response['status-message']
+      });
+    }
+
+    const securityCode = response['security-code'];
+    const hashedCode = await bcrypt.hash(securityCode, 10);
+    const expirationMinutes = 5;
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + expirationMinutes * 60000);
+
+    const saved = await VerificationCode.create({
+      phone,
+      code: hashedCode,
+      provider: 'Neutrino',
+      status: 'pendiente',
+      createdAt: now,
+      expiresAt: expiresAt
+    });
+
+    logger.info(`Código generado ID: ${saved._id} para ${phone}, expira en ${expiresAt.toLocaleTimeString()}`);
+
+    return sendResponse(res, 200, true, 'Código enviado y guardado correctamente', {
+      phone,
+      expiresAt
+    });
+
+  } catch (error) {
+    logger.error(` Excepción al guardar código: ${error.message}`);
+    return sendResponse(res, 500, false, 'Error interno', {
+      error: error.message
+    });
   }
-
-  const sanitizedPhone = sanitizePhone(phone);
-
-  if (!sanitizedPhone) {
-    return res.status(400).json({ error: 'Número inválido. Debe tener 10 dígitos numéricos' });
-  }
-
-  const fakeCode = '123456';
-  console.log(`Código simulado enviado a ${sanitizedPhone}`);
-
-  res.status(200).json({
-    message: `Código enviado correctamente a ${sanitizedPhone}`,
-    simulatedCode: fakeCode
-  });
-}
+};
 module.exports = {
   sendCode
 };
