@@ -11,7 +11,7 @@ const sendCodeWithNeutrino = async (phoneNumber) => {
   data.append('api-key', apiKey);
   data.append('number', phoneNumber);
   data.append('code-length', codeLength);
-  data.append('security-code', ''); // que Neutrino lo genere
+  data.append('security-code', ''); 
 
   const headers = {
     'Content-Type': 'application/x-www-form-urlencoded'

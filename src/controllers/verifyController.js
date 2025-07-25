@@ -2,8 +2,12 @@ const {sendCodeWithNeutrino} = require('../services/neutrinoVerifyService');
 const sanitizePhone = require( '../utils/phoneSanitizer');
 const sendResponse = require('../utils/sendResponse');
 const logger = require('../utils/logger');
-const VerificationCode = require('../models/verificationCode');
 const bcrypt = require('bcrypt');
+const VerificationCode = require('../models/verificationCode');
+const blockedPhone = require('../models/blockedPhone');
+
+const maxTries = 5;
+const blockBaseTime = 15 * 60 * 1000;
 
  async function sendCode(req, res) {
   try {
@@ -28,7 +32,6 @@ const bcrypt = require('bcrypt');
     const expirationMinutes = 5;
     const now = new Date();
     const expiresAt = new Date(now.getTime() + expirationMinutes * 60000);
-
     const saved = await VerificationCode.create({
       phone,
       code: hashedCode,
@@ -52,6 +55,78 @@ const bcrypt = require('bcrypt');
     });
   }
 };
+
+const checkVerifyCode = async (req, res) => {
+    const { phone, code } = req.body;
+
+    try {
+        // Buscar códigos vigentes
+        const registros = await VerificationCode.find({
+            phone,
+            status: 'pendiente',
+            expiresAt: { $gt: new Date() }
+        }).sort({ createdAt: -1 });
+
+        if (registros.length === 0) {
+            logger.warn(`Sin códigos vigentes para ${phone}`);
+            return res.status(400).json({ msg: 'Código inexistente o expirado' });
+        }
+
+        // Comparar con bcrypt
+        for (const reg of registros) {
+            const valido = await bcrypt.compare(code, reg.code);
+            if (valido) {
+                reg.status = 'verificado';
+                reg.verifiedAt = new Date();
+                await reg.save();
+
+                logger.info(`Verificación correcta para ${phone}`);
+                return res.status(200).json({ msg: 'Código verificado correctamente' });
+            }
+        }
+
+        // Si ninguno coincidió
+        const intento = registros[0];
+        intento.filedAttempts += 1;
+        await intento.save();
+
+        logger.warn(`Código incorrecto (${intento.filedAttempts}/${maxTries}) para ${phone}`);
+
+        if (intento.filedAttempts >= maxTries) {
+            await bloquearTelefono(phone);
+        }
+
+        return res.status(400).json({ msg: 'Código incorrecto' });
+
+    } catch (err) {
+        logger.error('Error al verificar código: ' + err.message);
+        return res.status(500).json({ msg: 'Error al verificar código' });
+    }
+};
+
+// ✅ Función para bloquear número
+const bloquearTelefono = async (phone) => {
+    const ahora = new Date();
+    const doc = await blockedPhone.findOne({ phone });
+
+    if (doc) {
+        doc.recurrences += 1;
+        doc.locked_at = ahora;
+        doc.unlocked_at = new Date(ahora.getTime() + blockBaseTime * doc.recurrences);
+        await doc.save();
+        logger.warn(`Re-bloqueo ${phone} (recurrencias: ${doc.recurrences})`);
+    } else {
+        await blockedPhone.create({
+            phone,
+            locked_at: ahora,
+            unlocked_at: new Date(ahora.getTime() + blockBaseTime),
+            recurrences: 1
+        });
+        logger.warn(`Bloqueo inicial de ${phone}`);
+    }
+};
+
 module.exports = {
-  sendCode
+  sendCode,
+  checkVerifyCode
 };
