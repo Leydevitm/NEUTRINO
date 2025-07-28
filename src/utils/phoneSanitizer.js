@@ -1,18 +1,21 @@
-
-const sanitizePhone = (phoneNumber)=>{
+const sanitizePhone = (phoneNumber) => {
     if (!phoneNumber) return null;
-    
-    // Remove all non-digit characters
-    const sanitized = phoneNumber.replace(/\D/g, '');
 
-    // Check if the sanitized number is valid (12 digits)
-    if (sanitized.startsWith('+52') && sanitized.length === 12) {
-        return `+${sanitized}`;
-    } 
-    if(sanitized.length === 10) {
-        return `+52${sanitized}`;
+    // Eliminar todos los caracteres no numéricos
+    const digitsOnly = phoneNumber.replace(/\D/g, '');
+
+    // Si ya incluye LADA internacional 52
+    if (digitsOnly.startsWith('52') && digitsOnly.length === 12) {
+        return `+${digitsOnly}`;
     }
+
+    // Si es un número nacional de 10 dígitos
+    if (digitsOnly.length === 10) {
+        return `+52${digitsOnly}`;
+    }
+
+    // Si no cumple ningún formato esperado
     return null;
-}
+};
 
 module.exports = sanitizePhone;

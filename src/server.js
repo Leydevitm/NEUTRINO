@@ -1,11 +1,11 @@
 const express = require('express');
 const { createServer } = require('http');
 const { dbConnection } = require('./database/config');
-const  authMiddleware  =require( './middlewares/basicAuth');
 const dotenv = require('dotenv');
 const cors = require('cors');
 dotenv.config();
 const smsRoutes = require('./routes/sms');
+const authMiddleware = require( './middlewares/basicAuth');
 
 class Server{
 

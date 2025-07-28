@@ -1,13 +1,13 @@
 const { Router } = require('express');
-const { sendCode, checkVerifyCode}= require( '../controllers/verifyController.js');
-const  authMiddleware= require('../middlewares/basicAuth.js');
+const { startVerificationController, checkVerificationController } = require('../controllers/verifyController');
+const attemptLimit = require('../middlewares/attemptLimit');
 
 const router = Router();
 
 
-router.post('/send', authMiddleware, sendCode);
+router.post('/send', attemptLimit, startVerificationController);
 
-router.post( '/check',authMiddleware, checkVerifyCode );
+router.post( '/check', attemptLimit, checkVerificationController );
 
 module.exports = router;
 
