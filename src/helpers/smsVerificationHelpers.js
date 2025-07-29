@@ -20,7 +20,8 @@ async function sendCode(phone) {
       };
     }
 
-    const response = await sendCodeWithNeutrino(sanitizedPhone);
+    const response = await sendCodeWithNeutrino(sanitizedPhone,'Super Kompras: tu código es {{CODE}}');
+    logger.info(`[sendVerificationCode] SMS sent to: ${sanitizedPhone}`);
 
     if (!response['sent']) {
       logger.error(`Neutrino falló: ${response['status-message']}`);
@@ -30,6 +31,7 @@ async function sendCode(phone) {
         error: response['status-message']
       };
     }
+    
 
     const securityCode = response['security-code'];
     const hashedCode = await bcrypt.hash(securityCode, 10);
@@ -56,7 +58,12 @@ async function sendCode(phone) {
     };
 
   } catch (error) {
-    logger.error(`Excepción al guardar código: ${error.message}`);
+    logger.error('Excepción al guardar código:', {
+  mensaje: error.message,
+  detalles: error.response?.data || null,
+  status: error.response?.status || null
+});
+
     return {
       ok: false,
       message: 'Error interno',
