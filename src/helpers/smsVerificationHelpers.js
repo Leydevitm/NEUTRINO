@@ -5,7 +5,7 @@ const logger = require('../utils/logger');
 const bcrypt = require('bcrypt');
 const VerificationCode = require('../models/verificationCode');
 const blockedPhone = require('../models/blockedPhone');
-
+const verifyCodeSchema = require('./validatorCode');
 const maxTries = 5;
 const blockBaseTime = 15 * 60 * 1000;
 
@@ -95,6 +95,34 @@ const bloquearTelefono = async (phone) => {
 
 const checkVerifyCode = async (phone, code) => {
   try {
+     const parseResult = verifyCodeSchema.safeParse({ phone, code });
+    
+
+    if (!parseResult.success) {
+  const zodErrors = parseResult.error?.issues || [];  
+
+  if (zodErrors.length === 1) {
+    return {
+      ok: false,
+      message: `Datos inválidos: ${zodErrors[0].message}`
+    };
+  }
+
+  if (zodErrors.length > 1) {
+    const mensajes = zodErrors.map(err => err.message).join(', ');
+    return {
+      ok: false,
+      message: `Datos inválidos: ${mensajes}`
+    };
+  }
+
+  return {
+    ok: false,
+    message: 'Datos inválidos: Error de validación desconocido'
+  };
+}
+
+
     const registros = await VerificationCode.find({
       phone,
       status: 'pendiente',
